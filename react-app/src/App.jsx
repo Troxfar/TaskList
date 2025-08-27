@@ -221,7 +221,11 @@ function TaskCardBase({ task, onComplete, dragging }) {
         <div className="text-xl md:text-2xl leading-none" style={{ color: COLORS.neonCyan }}>≡</div>
         <div className="flex-1 text-sm md:text-base" style={{ color: COLORS.textLight }}>{task.text}</div>
         <button
-          onClick={onComplete}
+          onClick={(e) => {
+            e.stopPropagation();
+            onComplete();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
           className="px-3 md:px-4 py-1 rounded-xl border text-lg font-bold transition active:scale-95"
           style={{
             color: COLORS.neonLime,
