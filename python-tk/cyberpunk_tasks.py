@@ -1,0 +1,287 @@
+\
+import tkinter as tk
+from tkinter import ttk, simpledialog
+
+# -----------------------------
+# Cyberpunk Task Board (Tkinter)
+# -----------------------------
+# Features
+# - Dark-mode, neon/cyberpunk palette
+# - "+" button to add tasks
+# - Each task is its own draggable card
+# - "-" button on each task moves it to the Completed Items tab
+# - Scrollable task areas
+# - Pure standard library (Tkinter), single file
+
+# ---- Theme / Style ----
+BG_DARK = "#0b0f14"      # near-black
+BG_PANEL = "#121826"     # dark panel
+NEON_CYAN = "#00E5FF"
+NEON_MAGENTA = "#FF00FF"
+NEON_LIME = "#39FF14"
+TEXT_LIGHT = "#E6F1FF"
+TEXT_DIM = "#93a4c3"
+CARD_BG = "#0e1421"
+CARD_BORDER = "#1f2a44"
+
+TITLE_FONT = ("Segoe UI", 16, "bold")
+TEXT_FONT = ("Segoe UI", 11)
+
+CARD_PADY = 8
+CARD_PADX = 10
+
+
+class ScrollableArea(ttk.Frame):
+    """A scrollable area containing a Canvas with an interior Frame."""
+    def __init__(self, parent, *, bg=BG_PANEL):
+        super().__init__(parent)
+        self.configure(style="Panel.TFrame")
+
+        self.canvas = tk.Canvas(self, bg=bg, highlightthickness=0, bd=0)
+        self.vbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.vbar.set)
+
+        self.inner = tk.Frame(self.canvas, bg=bg)
+        self.window_id = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.vbar.pack(side="right", fill="y")
+
+        self.inner.bind("<Configure>", self._on_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
+        # Mouse wheel support (Windows/Mac/Linux)
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel_linux)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel_linux)
+
+    def _on_configure(self, event):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self.canvas.itemconfigure(self.window_id, width=self.canvas.winfo_width())
+
+    def _on_canvas_configure(self, event):
+        self.canvas.itemconfigure(self.window_id, width=event.width)
+
+    def _on_mousewheel(self, event):
+        # Windows/MacOS
+        if event.widget is self.canvas or str(event.widget).startswith(str(self.inner)):
+            delta = int(-1 * (event.delta / 120))
+            self.canvas.yview_scroll(delta, "units")
+
+    def _on_mousewheel_linux(self, event):
+        # Linux
+        if event.num == 4:
+            self.canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.canvas.yview_scroll(1, "units")
+
+
+class TaskCard:
+    """A draggable card representing a single task."""
+    def __init__(self, app, parent_frame, text):
+        self.app = app
+        self.parent_frame = parent_frame
+        self.text = text
+
+        # Outer frame used for neon border glow effect
+        self.shadow = tk.Frame(parent_frame, bg=NEON_CYAN)
+        self.frame = tk.Frame(self.shadow, bg=CARD_BG, highlightthickness=2,
+                              highlightbackground=CARD_BORDER, highlightcolor=CARD_BORDER)
+
+        # Header: drag handle + title + complete button
+        self.header = tk.Frame(self.frame, bg=CARD_BG)
+        our_handle = "≡"
+        self.handle = tk.Label(self.header, text=our_handle, fg=NEON_CYAN, bg=CARD_BG, font=TITLE_FONT)
+        self.title = tk.Label(self.header, text=self.text, fg=TEXT_LIGHT, bg=CARD_BG, font=TEXT_FONT, wraplength=700, justify="left")
+        self.complete_btn = tk.Button(self.header, text="-", fg=NEON_LIME, bg="#0b1a12", activebackground="#10331d",
+                                      activeforeground=NEON_LIME, bd=0, relief="flat", font=TITLE_FONT,
+                                      command=self.complete)
+
+        self.header.pack(fill="x", padx=12, pady=10)
+        self.handle.pack(side="left")
+        self.title.pack(side="left", padx=10, fill="x", expand=True)
+        self.complete_btn.pack(side="right")
+
+        # Subtle neon underline
+        self.underline = tk.Frame(self.frame, height=2, bg=NEON_MAGENTA)
+        self.underline.pack(fill="x")
+
+        self.frame.pack(fill="x", expand=True, padx=2, pady=2)
+        self.shadow.pack(fill="x", padx=CARD_PADX, pady=CARD_PADY)
+
+        # Drag bindings (use handle or whole card)
+        drag_targets = [self.frame, self.header, self.handle, self.title]
+        for w in drag_targets:
+            w.bind("<Button-1>", self.on_drag_start)
+            w.bind("<B1-Motion>", self.on_drag_motion)
+            w.bind("<ButtonRelease-1>", self.on_drag_release)
+
+        self._drag_index = None
+
+    # ---- Drag & drop ordering ----
+    def on_drag_start(self, event):
+        try:
+            self._drag_index = self.app.tasks.index(self)
+        except ValueError:
+            self._drag_index = None
+        self.shadow.configure(bg=NEON_MAGENTA)  # highlight during drag
+
+    def on_drag_motion(self, event):
+        if self._drag_index is None:
+            return
+        container = self.parent_frame  # tasks area frame
+        pointer_y = container.winfo_pointery() - container.winfo_rooty()
+
+        # Determine target index based on pointer position vs centers of sibling cards
+        cards = self.app.tasks
+        y_centers = []
+        for card in cards:
+            y = card.shadow.winfo_y()
+            h = card.shadow.winfo_height() or 1
+            y_centers.append(y + h / 2)
+
+        target_index = self._drag_index
+        for i, c_y in enumerate(y_centers):
+            if pointer_y < c_y:
+                target_index = i
+                break
+        else:
+            target_index = len(cards) - 1
+
+        if target_index != self._drag_index:
+            # Reorder list and repack
+            card = cards.pop(self._drag_index)
+            cards.insert(target_index, card)
+            self._drag_index = target_index
+            self.app.repack_task_cards()
+
+    def on_drag_release(self, event):
+        self.shadow.configure(bg=NEON_CYAN)
+        self._drag_index = None
+
+    # ---- Actions ----
+    def complete(self):
+        """Move this card to the completed tab."""
+        # Remove from active tasks
+        if self in self.app.tasks:
+            self.app.tasks.remove(self)
+            self.shadow.pack_forget()
+        self.app.repack_task_cards()
+
+        # Re-style for completed list (dim text)
+        self.title.configure(fg=TEXT_DIM)
+        self.shadow.configure(bg=NEON_LIME)
+
+        # Remove drag bindings and the complete button
+        for w in [self.frame, self.header, self.handle, self.title]:
+            w.unbind("<Button-1>")
+            w.unbind("<B1-Motion>")
+            w.unbind("<ButtonRelease-1>")
+        self.complete_btn.configure(state="disabled")
+
+        # Add to completed area
+        self.parent_frame = self.app.completed_area.inner
+        self.shadow.master = self.parent_frame
+        self.shadow.pack(fill="x", padx=CARD_PADX, pady=CARD_PADY)
+        self.app.completed.append(self)
+        self.app.refresh_scrollregions()
+
+
+class TaskBoardApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Cyberpunk Task Board")
+        self.root.geometry("900x600")
+        self.root.configure(bg=BG_DARK)
+
+        self._setup_style()
+
+        # Title bar with + button
+        titlebar = tk.Frame(root, bg=BG_DARK)
+        title_label = tk.Label(titlebar, text="CYBERPUNK TASK LIST", fg=NEON_CYAN, bg=BG_DARK, font=TITLE_FONT)
+        add_btn = tk.Button(titlebar, text="＋", fg=TEXT_LIGHT, bg=BG_PANEL, activebackground=NEON_MAGENTA,
+                            activeforeground=TEXT_LIGHT, bd=0, relief="flat", font=("Segoe UI", 18, "bold"),
+                            command=self.add_task_dialog)
+        title_label.pack(side="left", padx=10, pady=12)
+        add_btn.pack(side="right", padx=12)
+        titlebar.pack(fill="x")
+
+        # Notebook (tabs)
+        self.notebook = ttk.Notebook(root, style="Neon.TNotebook")
+        self.tab_active = tk.Frame(self.notebook, bg=BG_PANEL)
+        self.tab_completed = tk.Frame(self.notebook, bg=BG_PANEL)
+        self.notebook.add(self.tab_active, text="Tasks")
+        self.notebook.add(self.tab_completed, text="Completed Items")
+        self.notebook.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        # Scrollable areas
+        self.active_area = ScrollableArea(self.tab_active, bg=BG_PANEL)
+        self.active_area.pack(fill="both", expand=True)
+
+        self.completed_area = ScrollableArea(self.tab_completed, bg=BG_PANEL)
+        self.completed_area.pack(fill="both", expand=True)
+
+        # Data
+        self.tasks = []
+        self.completed = []
+
+        # Demo tasks
+        for t in [
+            "Patch proxies to 12.2.18",
+            "Prepare AI Steering Committee slides",
+            "Finish CrowdStrike DFD",
+            "Schedule PCI policy review",
+        ]:
+            self.add_task(t)
+
+    # ---- Style ----
+    def _setup_style(self):
+        style = ttk.Style(self.root)
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+
+        style.configure("Panel.TFrame", background=BG_PANEL)
+
+        style.layout("Neon.TNotebook", style.layout("TNotebook"))
+        style.configure("Neon.TNotebook", background=BG_DARK, borderwidth=0)
+        style.configure("Neon.TNotebook.Tab", padding=(16, 8), background=BG_PANEL, foreground=TEXT_LIGHT)
+        style.map("Neon.TNotebook.Tab",
+                  background=[("selected", BG_DARK)],
+                  foreground=[("selected", NEON_CYAN)])
+
+    # ---- Task operations ----
+    def add_task_dialog(self):
+        text = simpledialog.askstring("New Task", "Describe the task:", parent=self.root)
+        if text:
+            self.add_task(text.strip())
+
+    def add_task(self, text: str):
+        card = TaskCard(self, self.active_area.inner, text)
+        self.tasks.append(card)
+        self.repack_task_cards()
+        self.refresh_scrollregions()
+
+    def repack_task_cards(self):
+        # Repack active tasks in current order
+        for card in self.tasks:
+            try:
+                card.shadow.pack_forget()
+            except Exception:
+                pass
+        for card in self.tasks:
+            card.shadow.pack(fill="x", padx=CARD_PADX, pady=CARD_PADY)
+        self.refresh_scrollregions()
+
+    def refresh_scrollregions(self):
+        # Force scrollregion update
+        self.root.update_idletasks()
+        self.active_area._on_configure(None)
+        self.completed_area._on_configure(None)
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = TaskBoardApp(root)
+    root.mainloop()
