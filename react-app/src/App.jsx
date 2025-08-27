@@ -260,16 +260,16 @@ function CompletedCard({ task, onRestore }) {
         <div className="flex-1 text-sm md:text-base">{task.text}</div>
         <button
           onClick={onRestore}
-          className="px-3 md:px-4 py-1 rounded-xl border text-sm md:text-base transition active:scale-95"
+          className="px-3 md:px-4 py-1 rounded-xl border text-lg font-bold transition active:scale-95"
           style={{
             color: COLORS.neonCyan,
             background: COLORS.panel,
             borderColor: COLORS.cardBorder,
           }}
           aria-label="Restore task"
-          title="Move back to Tasks"
+          title="Restore task"
         >
-          Restore
+          ＋
         </button>
       </div>
     </div>
