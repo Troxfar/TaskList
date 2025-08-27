@@ -12,6 +12,7 @@ from tkinter import ttk, simpledialog
 # - "+" button to add tasks
 # - Each task is its own draggable card
 # - "-" button on each task moves it to the Completed Items tab
+# - "✕" button deletes the task entirely
 # - Scrollable task areas
 # - Pure standard library (Tkinter), single file
 
@@ -21,6 +22,7 @@ BG_PANEL = "#121826"     # dark panel
 NEON_CYAN = "#00E5FF"
 NEON_MAGENTA = "#FF00FF"
 NEON_LIME = "#39FF14"
+NEON_RED = "#FF0055"
 TEXT_LIGHT = "#E6F1FF"
 TEXT_DIM = "#93a4c3"
 CARD_BG = "#0e1421"
@@ -119,12 +121,25 @@ class TaskCard:
             font=TITLE_FONT,
             command=self.complete,
         )
+        self.delete_btn = tk.Button(
+            self.header,
+            text="✕",
+            fg=NEON_RED,
+            bg="#140b0b",
+            activebackground="#330f0f",
+            activeforeground=NEON_RED,
+            bd=0,
+            relief="flat",
+            font=TITLE_FONT,
+            command=self.delete,
+        )
 
         self.header.pack(fill="x", padx=12, pady=10)
         self.handle.pack(side="left")
         self.title.pack(side="left", padx=10, fill="x", expand=True)
+        self.delete_btn.pack(side="right", padx=(0, 6))
         self.complete_btn.pack(side="right")
-        self.edit_btn.pack(side="right", padx=(0, 6))
+        self.edit_btn.pack(side="right")
 
         # Subtle neon underline
         self.underline = tk.Frame(self.frame, height=2, bg=NEON_MAGENTA)
@@ -213,6 +228,17 @@ class TaskCard:
 
         if save:
             self.app.save_state()
+
+    def delete(self):
+        """Remove this task card entirely."""
+        if self in self.app.tasks:
+            self.app.tasks.remove(self)
+            self.app.repack_task_cards()
+        elif self in self.app.completed:
+            self.app.completed.remove(self)
+        self.shadow.destroy()
+        self.app.refresh_scrollregions()
+        self.app.save_state()
 
     def edit(self):
         new_text = simpledialog.askstring("Edit Task", "Edit the task:", initialvalue=self.text, parent=self.app.root)
