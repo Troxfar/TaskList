@@ -205,13 +205,10 @@ class TaskCard:
         self.complete_btn.configure(state="disabled")
 
         # Add to completed area
+        self.shadow.pack_forget()
+        self.shadow.master = self.app.completed_area.inner
+        self.shadow.pack(fill="x", padx=CARD_PADX, pady=CARD_PADY)
         self.parent_frame = self.app.completed_area.inner
-        self.shadow.pack(
-            fill="x",
-            padx=CARD_PADX,
-            pady=CARD_PADY,
-            in_=self.app.completed_area.inner,
-        )
         self.app.completed.append(self)
         self.app.notebook.select(self.app.tab_completed)
         self.app.refresh_scrollregions()
@@ -247,13 +244,10 @@ class TaskCard:
             w.bind("<ButtonRelease-1>", self.on_drag_release)
 
         # Move back to active area
+        self.shadow.pack_forget()
+        self.shadow.master = self.app.active_area.inner
+        self.shadow.pack(fill="x", padx=CARD_PADX, pady=CARD_PADY)
         self.parent_frame = self.app.active_area.inner
-        self.shadow.pack(
-            fill="x",
-            padx=CARD_PADX,
-            pady=CARD_PADY,
-            in_=self.app.active_area.inner,
-        )
 
         # Restore button to complete action
         self.complete_btn.configure(text="-", command=self.complete, state="normal")
