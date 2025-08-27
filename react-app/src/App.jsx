@@ -254,7 +254,10 @@ function TaskCardBase({ task, onComplete, dragging }) {
             e.stopPropagation();
             onComplete();
           }}
-          onMouseDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+          }}
           className="px-3 md:px-4 py-1 rounded-xl border text-lg font-bold transition active:scale-95"
           style={{
             color: COLORS.neonLime,
