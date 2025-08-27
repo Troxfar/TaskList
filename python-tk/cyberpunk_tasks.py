@@ -95,14 +95,36 @@ class TaskCard:
         our_handle = "≡"
         self.handle = tk.Label(self.header, text=our_handle, fg=NEON_CYAN, bg=CARD_BG, font=TITLE_FONT)
         self.title = tk.Label(self.header, text=self.text, fg=TEXT_LIGHT, bg=CARD_BG, font=TEXT_FONT, wraplength=700, justify="left")
-        self.complete_btn = tk.Button(self.header, text="-", fg=NEON_LIME, bg="#0b1a12", activebackground="#10331d",
-                                      activeforeground=NEON_LIME, bd=0, relief="flat", font=TITLE_FONT,
-                                      command=self.complete)
+        self.edit_btn = tk.Button(
+            self.header,
+            text="✎",
+            fg=NEON_MAGENTA,
+            bg="#1a0b14",
+            activebackground="#33101f",
+            activeforeground=NEON_MAGENTA,
+            bd=0,
+            relief="flat",
+            font=TITLE_FONT,
+            command=self.edit,
+        )
+        self.complete_btn = tk.Button(
+            self.header,
+            text="-",
+            fg=NEON_LIME,
+            bg="#0b1a12",
+            activebackground="#10331d",
+            activeforeground=NEON_LIME,
+            bd=0,
+            relief="flat",
+            font=TITLE_FONT,
+            command=self.complete,
+        )
 
         self.header.pack(fill="x", padx=12, pady=10)
         self.handle.pack(side="left")
         self.title.pack(side="left", padx=10, fill="x", expand=True)
         self.complete_btn.pack(side="right")
+        self.edit_btn.pack(side="right", padx=(0, 6))
 
         # Subtle neon underline
         self.underline = tk.Frame(self.frame, height=2, bg=NEON_MAGENTA)
@@ -193,6 +215,13 @@ class TaskCard:
         self.complete_btn.configure(text="+", command=self.restore, state="normal")
 
         if save:
+            self.app.save_state()
+
+    def edit(self):
+        new_text = simpledialog.askstring("Edit Task", "Edit the task:", initialvalue=self.text, parent=self.app.root)
+        if new_text:
+            self.text = new_text.strip()
+            self.title.configure(text=self.text)
             self.app.save_state()
 
     def restore(self, save=True):

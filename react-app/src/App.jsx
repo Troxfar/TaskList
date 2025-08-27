@@ -104,6 +104,16 @@ export default function App() {
     setActiveTab("tasks");
   }
 
+  function handleEdit(taskId) {
+    const current = tasks.find((t) => t.id === taskId) || completed.find((t) => t.id === taskId);
+    if (!current) return;
+    const newText = window.prompt("Edit the task:", current.text);
+    if (!newText || !newText.trim()) return;
+    const text = newText.trim();
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, text } : t)));
+    setCompleted((prev) => prev.map((t) => (t.id === taskId ? { ...t, text } : t)));
+  }
+
   function onDragEnd(event) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -149,9 +159,10 @@ export default function App() {
             sensors={sensors}
             onDragEnd={onDragEnd}
             onComplete={handleComplete}
+            onEdit={handleEdit}
           />
         ) : (
-          <CompletedPanel completed={completed} onRestore={handleRestore} />
+          <CompletedPanel completed={completed} onRestore={handleRestore} onEdit={handleEdit} />
         )}
       </div>
     </div>
@@ -174,14 +185,19 @@ function TabButton({ label, active, onClick }) {
   );
 }
 
-function TasksPanel({ tasks, sensors, onDragEnd, onComplete }) {
+function TasksPanel({ tasks, sensors, onDragEnd, onComplete, onEdit }) {
   const ids = useMemo(() => tasks.map((t) => t.id), [tasks]);
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         <div className="grid gap-4">
           {tasks.map((task) => (
-            <SortableTaskCard key={task.id} task={task} onComplete={() => onComplete(task.id)} />
+            <SortableTaskCard
+              key={task.id}
+              task={task}
+              onComplete={() => onComplete(task.id)}
+              onEdit={() => onEdit(task.id)}
+            />
           ))}
           {tasks.length === 0 && (
             <EmptyState text="No tasks yet. Smash the ＋ button to add one!" />
@@ -192,11 +208,16 @@ function TasksPanel({ tasks, sensors, onDragEnd, onComplete }) {
   );
 }
 
-function CompletedPanel({ completed, onRestore }) {
+function CompletedPanel({ completed, onRestore, onEdit }) {
   return (
     <div className="grid gap-4">
       {completed.map((task) => (
-        <CompletedCard key={task.id} task={task} onRestore={() => onRestore(task.id)} />
+        <CompletedCard
+          key={task.id}
+          task={task}
+          onRestore={() => onRestore(task.id)}
+          onEdit={() => onEdit(task.id)}
+        />
       ))}
       {completed.length === 0 && (
         <EmptyState text="Nothing here... yet. Press '-' on a task to complete it." dim />
@@ -220,7 +241,7 @@ function EmptyState({ text, dim }) {
   );
 }
 
-function SortableTaskCard({ task, onComplete }) {
+function SortableTaskCard({ task, onComplete, onEdit }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -229,12 +250,12 @@ function SortableTaskCard({ task, onComplete }) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <TaskCardBase task={task} onComplete={onComplete} dragging={isDragging} />
+      <TaskCardBase task={task} onComplete={onComplete} onEdit={onEdit} dragging={isDragging} />
     </div>
   );
 }
 
-function TaskCardBase({ task, onComplete, dragging }) {
+function TaskCardBase({ task, onComplete, onEdit, dragging }) {
   return (
     <div
       className="rounded-2xl border px-4 py-3 md:px-5 md:py-4 cursor-grab active:cursor-grabbing select-none"
@@ -249,6 +270,27 @@ function TaskCardBase({ task, onComplete, dragging }) {
       <div className="flex items-center gap-3">
         <div className="text-xl md:text-2xl leading-none" style={{ color: COLORS.neonCyan }}>≡</div>
         <div className="flex-1 text-sm md:text-base" style={{ color: COLORS.textLight }}>{task.text}</div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+          }}
+          className="px-2 md:px-3 py-1 rounded-xl border text-sm md:text-base font-bold transition active:scale-95"
+          style={{
+            color: COLORS.neonMagenta,
+            background: "#1a0b14",
+            borderColor: COLORS.cardBorder,
+            boxShadow: `0 0 10px ${COLORS.neonMagenta}44 inset`,
+          }}
+          aria-label="Edit task"
+          title="Edit task"
+        >
+          ✎
+        </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -276,7 +318,7 @@ function TaskCardBase({ task, onComplete, dragging }) {
   );
 }
 
-function CompletedCard({ task, onRestore }) {
+function CompletedCard({ task, onRestore, onEdit }) {
   return (
     <div
       className="rounded-2xl border px-4 py-3 md:px-5 md:py-4 select-none"
@@ -290,6 +332,19 @@ function CompletedCard({ task, onRestore }) {
       <div className="flex items-center gap-3">
         <div className="text-xl md:text-2xl leading-none" style={{ color: COLORS.neonLime }}>✓</div>
         <div className="flex-1 text-sm md:text-base">{task.text}</div>
+        <button
+          onClick={onEdit}
+          className="px-2 md:px-3 py-1 rounded-xl border text-sm md:text-base font-bold transition active:scale-95"
+          style={{
+            color: COLORS.neonMagenta,
+            background: COLORS.panel,
+            borderColor: COLORS.cardBorder,
+          }}
+          aria-label="Edit task"
+          title="Edit task"
+        >
+          ✎
+        </button>
         <button
           onClick={onRestore}
           className="px-3 md:px-4 py-1 rounded-xl border text-lg font-bold transition active:scale-95"
