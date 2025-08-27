@@ -1,4 +1,6 @@
-\
+import json
+from pathlib import Path
+
 import tkinter as tk
 from tkinter import ttk, simpledialog
 
@@ -158,9 +160,10 @@ class TaskCard:
     def on_drag_release(self, event):
         self.shadow.configure(bg=NEON_CYAN)
         self._drag_index = None
+        self.app.save_state()
 
     # ---- Actions ----
-    def complete(self):
+    def complete(self, save=True):
         """Move this card to the completed tab."""
         # Remove from active tasks
         if self in self.app.tasks:
@@ -189,7 +192,10 @@ class TaskCard:
         # Enable button to allow restoring the task
         self.complete_btn.configure(text="+", command=self.restore, state="normal")
 
-    def restore(self):
+        if save:
+            self.app.save_state()
+
+    def restore(self, save=True):
         """Return this card to the active tasks list."""
         if self in self.app.completed:
             self.app.completed.remove(self)
@@ -216,6 +222,9 @@ class TaskCard:
         # Add back to active tasks and refresh layout
         self.app.tasks.append(self)
         self.app.repack_task_cards()
+
+        if save:
+            self.app.save_state()
 
 
 class TaskBoardApp:
@@ -256,7 +265,7 @@ class TaskBoardApp:
 
         max_btn = tk.Button(titlebar, text="□", command=toggle_max_restore, fg=TEXT_LIGHT, bg="black",
                              activeforeground=TEXT_LIGHT, activebackground="black", bd=0, relief="flat")
-        close_btn = tk.Button(titlebar, text="✕", command=self.root.destroy, fg=TEXT_LIGHT, bg="black",
+        close_btn = tk.Button(titlebar, text="✕", command=self.on_close, fg=TEXT_LIGHT, bg="black",
                                activeforeground=TEXT_LIGHT, activebackground="black", bd=0, relief="flat")
 
         title_label.pack(side="left", padx=10, pady=12)
@@ -296,18 +305,22 @@ class TaskBoardApp:
         self.completed_area = ScrollableArea(self.tab_completed, bg=BG_PANEL)
         self.completed_area.pack(fill="both", expand=True)
 
-        # Data
+        # Data and persistence
+        self.data_file = Path(__file__).with_name("tasks.json")
         self.tasks = []
         self.completed = []
+        if not self.load_state():
+            for t in [
+                "Patch proxies to 12.2.18",
+                "Prepare AI Steering Committee slides",
+                "Finish CrowdStrike DFD",
+                "Schedule PCI policy review",
+            ]:
+                self.add_task(t, save=False)
+            self.save_state()
 
-        # Demo tasks
-        for t in [
-            "Patch proxies to 12.2.18",
-            "Prepare AI Steering Committee slides",
-            "Finish CrowdStrike DFD",
-            "Schedule PCI policy review",
-        ]:
-            self.add_task(t)
+        # Ensure state is saved when window closes
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     # ---- Style ----
     def _setup_style(self):
@@ -332,11 +345,14 @@ class TaskBoardApp:
         if text:
             self.add_task(text.strip())
 
-    def add_task(self, text: str):
+    def add_task(self, text: str, save=True):
         card = TaskCard(self, self.active_area.inner, text)
         self.tasks.append(card)
         self.repack_task_cards()
         self.refresh_scrollregions()
+        if save:
+            self.save_state()
+        return card
 
     def repack_task_cards(self):
         # Repack active tasks in current order
@@ -354,6 +370,37 @@ class TaskBoardApp:
         self.root.update_idletasks()
         self.active_area._on_configure(None)
         self.completed_area._on_configure(None)
+
+    def save_state(self):
+        data = {
+            "tasks": [card.text for card in self.tasks],
+            "completed": [card.text for card in self.completed],
+        }
+        try:
+            with self.data_file.open("w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception:
+            pass
+
+    def load_state(self):
+        if not self.data_file.exists():
+            return False
+        try:
+            with self.data_file.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            for text in data.get("tasks", []):
+                self.add_task(text, save=False)
+            for text in data.get("completed", []):
+                card = self.add_task(text, save=False)
+                card.complete(save=False)
+            self.refresh_scrollregions()
+            return True
+        except Exception:
+            return False
+
+    def on_close(self):
+        self.save_state()
+        self.root.destroy()
 
 
 if __name__ == "__main__":
