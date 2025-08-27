@@ -186,6 +186,37 @@ class TaskCard:
         self.app.completed.append(self)
         self.app.refresh_scrollregions()
 
+        # Enable button to allow restoring the task
+        self.complete_btn.configure(text="+", command=self.restore, state="normal")
+
+    def restore(self):
+        """Return this card to the active tasks list."""
+        if self in self.app.completed:
+            self.app.completed.remove(self)
+            self.shadow.pack_forget()
+
+        # Restore active styling
+        self.title.configure(fg=TEXT_LIGHT)
+        self.shadow.configure(bg=NEON_CYAN)
+
+        # Rebind drag events
+        drag_targets = [self.frame, self.header, self.handle, self.title]
+        for w in drag_targets:
+            w.bind("<Button-1>", self.on_drag_start)
+            w.bind("<B1-Motion>", self.on_drag_motion)
+            w.bind("<ButtonRelease-1>", self.on_drag_release)
+
+        # Move back to active area
+        self.parent_frame = self.app.active_area.inner
+        self.shadow.master = self.parent_frame
+
+        # Restore button to complete action
+        self.complete_btn.configure(text="-", command=self.complete, state="normal")
+
+        # Add back to active tasks and refresh layout
+        self.app.tasks.append(self)
+        self.app.repack_task_cards()
+
 
 class TaskBoardApp:
     def __init__(self, root):
