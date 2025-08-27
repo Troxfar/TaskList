@@ -185,36 +185,31 @@ class TaskCard:
         self.app.save_state()
 
     # ---- Actions ----
-    def complete(self, save=True):
-        """Move this card to the completed tab."""
-        # Remove from active tasks
-        if self in self.app.tasks:
-            self.app.tasks.remove(self)
-            self.shadow.pack_forget()
-        self.app.repack_task_cards()
-
-        # Re-style for completed list (dim text)
+    def mark_as_completed(self):
+        """Style this card for the completed list."""
         self.title.configure(fg=TEXT_DIM)
         self.shadow.configure(bg=NEON_LIME)
 
-        # Remove drag bindings and the complete button
+        # Disable dragging
         for w in [self.frame, self.header, self.handle, self.title]:
             w.unbind("<Button-1>")
             w.unbind("<B1-Motion>")
             w.unbind("<ButtonRelease-1>")
-        self.complete_btn.configure(state="disabled")
 
-        # Add to completed area
-        self.shadow.pack_forget()
-        self.shadow.master = self.app.completed_area.inner
-        self.shadow.pack(fill="x", padx=CARD_PADX, pady=CARD_PADY)
-        self.parent_frame = self.app.completed_area.inner
-        self.app.completed.append(self)
-        self.app.notebook.select(self.app.tab_completed)
-        self.app.refresh_scrollregions()
-
-        # Enable button to allow restoring the task
+        # Swap the complete button to a restore action
         self.complete_btn.configure(text="+", command=self.restore, state="normal")
+
+    def complete(self, save=True):
+        """Move this card to the completed tab."""
+        # Create a completed-task card before removing this one
+        self.app.add_completed_task(self.text, save=False)
+        self.app.notebook.select(self.app.tab_completed)
+
+        # Remove and destroy the original card
+        if self in self.app.tasks:
+            self.app.tasks.remove(self)
+        self.shadow.destroy()
+        self.app.repack_task_cards()
 
         if save:
             self.app.save_state()
@@ -227,34 +222,13 @@ class TaskCard:
             self.app.save_state()
 
     def restore(self, save=True):
-        """Return this card to the active tasks list."""
+        """Return this completed card to the active tasks list."""
         if self in self.app.completed:
             self.app.completed.remove(self)
-            self.shadow.pack_forget()
+        self.shadow.destroy()
 
-        # Restore active styling
-        self.title.configure(fg=TEXT_LIGHT)
-        self.shadow.configure(bg=NEON_CYAN)
-
-        # Rebind drag events
-        drag_targets = [self.frame, self.header, self.handle, self.title]
-        for w in drag_targets:
-            w.bind("<Button-1>", self.on_drag_start)
-            w.bind("<B1-Motion>", self.on_drag_motion)
-            w.bind("<ButtonRelease-1>", self.on_drag_release)
-
-        # Move back to active area
-        self.shadow.pack_forget()
-        self.shadow.master = self.app.active_area.inner
-        self.shadow.pack(fill="x", padx=CARD_PADX, pady=CARD_PADY)
-        self.parent_frame = self.app.active_area.inner
-
-        # Restore button to complete action
-        self.complete_btn.configure(text="-", command=self.complete, state="normal")
-
-        # Add back to active tasks and refresh layout
-        self.app.tasks.append(self)
-        self.app.repack_task_cards()
+        self.app.add_task(self.text, save=False)
+        self.app.refresh_scrollregions()
 
         if save:
             self.app.save_state()
@@ -387,6 +361,15 @@ class TaskBoardApp:
             self.save_state()
         return card
 
+    def add_completed_task(self, text: str, save=True):
+        card = TaskCard(self, self.completed_area.inner, text)
+        card.mark_as_completed()
+        self.completed.append(card)
+        self.refresh_scrollregions()
+        if save:
+            self.save_state()
+        return card
+
     def repack_task_cards(self):
         # Repack active tasks in current order
         for card in self.tasks:
@@ -424,8 +407,7 @@ class TaskBoardApp:
             for text in data.get("tasks", []):
                 self.add_task(text, save=False)
             for text in data.get("completed", []):
-                card = self.add_task(text, save=False)
-                card.complete(save=False)
+                self.add_completed_task(text, save=False)
             self.refresh_scrollregions()
             return True
         except Exception:
