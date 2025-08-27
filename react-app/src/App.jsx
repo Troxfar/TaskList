@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -36,10 +36,39 @@ const demoTasks = [
   "Schedule PCI policy review",
 ].map(makeTask);
 
+const STORAGE_KEY = "cyberpunk-task-board";
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.tasks) && Array.isArray(data.completed)) {
+        const all = [...data.tasks, ...data.completed];
+        const max = all.reduce((m, t) => {
+          const num = parseInt(String(t.id).split("-")[1] || "0", 10);
+          return isNaN(num) ? m : Math.max(m, num);
+        }, 0);
+        nextId = max + 1;
+        return data;
+      }
+    }
+  } catch {}
+  return { tasks: demoTasks, completed: [] };
+}
+
 export default function App() {
+  const initial = loadState();
   const [activeTab, setActiveTab] = useState("tasks"); // 'tasks' | 'completed'
-  const [tasks, setTasks] = useState(demoTasks);
-  const [completed, setCompleted] = useState([]);
+  const [tasks, setTasks] = useState(initial.tasks);
+  const [completed, setCompleted] = useState(initial.completed);
+
+  useEffect(() => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ tasks, completed })
+    );
+  }, [tasks, completed]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
