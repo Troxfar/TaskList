@@ -239,8 +239,9 @@ class TaskBoardApp:
         self.root = root
         self.root.title("Cyberpunk Task Board")
         self.root.geometry("900x600")
+        self.root.resizable(True, True)
         self.root.configure(bg=BG_DARK)
-        self.root.overrideredirect(True)
+        # self.root.overrideredirect(True)  # Disabled to use native window decorations
 
         self._drag_x = 0
         self._drag_y = 0
@@ -262,13 +263,11 @@ class TaskBoardApp:
         def toggle_max_restore():
             if self.root.state() == "zoomed":
                 self.root.state("normal")
-                self.root.overrideredirect(True)
                 if self._restore_geometry:
                     self.root.geometry(self._restore_geometry)
             else:
                 self._restore_geometry = self.root.geometry()
                 self.root.state("zoomed")
-                self.root.overrideredirect(True)
 
         max_btn = tk.Button(titlebar, text="□", command=toggle_max_restore, fg=TEXT_LIGHT, bg="black",
                              activeforeground=TEXT_LIGHT, activebackground="black", bd=0, relief="flat")
