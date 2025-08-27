@@ -83,13 +83,10 @@ export default function App() {
   }
 
   function handleComplete(taskId) {
-    setTasks((prev) => {
-      const idx = prev.findIndex((t) => t.id === taskId);
-      if (idx === -1) return prev;
-      const t = prev[idx];
-      setCompleted((c) => [makeTask(t.text), ...c]);
-      return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
-    });
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    setCompleted((c) => [task, ...c]);
     setActiveTab("completed");
   }
 
