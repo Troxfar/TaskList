@@ -193,18 +193,62 @@ class TaskBoardApp:
         self.root.title("Cyberpunk Task Board")
         self.root.geometry("900x600")
         self.root.configure(bg=BG_DARK)
+        self.root.overrideredirect(True)
+
+        self._drag_x = 0
+        self._drag_y = 0
 
         self._setup_style()
 
-        # Title bar with + button
-        titlebar = tk.Frame(root, bg=BG_DARK)
-        title_label = tk.Label(titlebar, text="CYBERPUNK TASK LIST", fg=NEON_CYAN, bg=BG_DARK, font=TITLE_FONT)
+        # Custom title bar
+        titlebar = tk.Frame(root, bg="black")
+        title_label = tk.Label(titlebar, text="CYBERPUNK TASK LIST", fg=NEON_CYAN, bg="black", font=TITLE_FONT)
         add_btn = tk.Button(titlebar, text="＋", fg=TEXT_LIGHT, bg=BG_PANEL, activebackground=NEON_MAGENTA,
                             activeforeground=TEXT_LIGHT, bd=0, relief="flat", font=("Segoe UI", 18, "bold"),
                             command=self.add_task_dialog)
+
+        # Window control buttons
+        min_btn = tk.Button(titlebar, text="–", command=self.root.iconify, fg=TEXT_LIGHT, bg="black",
+                             activeforeground=TEXT_LIGHT, activebackground="black", bd=0, relief="flat")
+        self._restore_geometry = None
+
+        def toggle_max_restore():
+            if self.root.state() == "zoomed":
+                self.root.state("normal")
+                self.root.overrideredirect(True)
+                if self._restore_geometry:
+                    self.root.geometry(self._restore_geometry)
+            else:
+                self._restore_geometry = self.root.geometry()
+                self.root.state("zoomed")
+                self.root.overrideredirect(True)
+
+        max_btn = tk.Button(titlebar, text="□", command=toggle_max_restore, fg=TEXT_LIGHT, bg="black",
+                             activeforeground=TEXT_LIGHT, activebackground="black", bd=0, relief="flat")
+        close_btn = tk.Button(titlebar, text="✕", command=self.root.destroy, fg=TEXT_LIGHT, bg="black",
+                               activeforeground=TEXT_LIGHT, activebackground="black", bd=0, relief="flat")
+
         title_label.pack(side="left", padx=10, pady=12)
-        add_btn.pack(side="right", padx=12)
+        close_btn.pack(side="right", padx=4)
+        max_btn.pack(side="right", padx=4)
+        min_btn.pack(side="right", padx=4)
+        add_btn.pack(side="right", padx=4)
         titlebar.pack(fill="x")
+
+        # Drag to move window
+        def start_move(event):
+            self._drag_x = event.x
+            self._drag_y = event.y
+
+        def do_move(event):
+            x = event.x_root - self._drag_x
+            y = event.y_root - self._drag_y
+            self.root.geometry(f"+{x}+{y}")
+
+        titlebar.bind("<Button-1>", start_move)
+        titlebar.bind("<B1-Motion>", do_move)
+        title_label.bind("<Button-1>", start_move)
+        title_label.bind("<B1-Motion>", do_move)
 
         # Notebook (tabs)
         self.notebook = ttk.Notebook(root, style="Neon.TNotebook")
