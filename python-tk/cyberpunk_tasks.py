@@ -209,6 +209,7 @@ class TaskCard:
         self.shadow.master = self.parent_frame
         self.shadow.pack(fill="x", padx=CARD_PADX, pady=CARD_PADY)
         self.app.completed.append(self)
+        self.app.notebook.select(self.app.tab_completed)
         self.app.refresh_scrollregions()
 
         # Enable button to allow restoring the task
